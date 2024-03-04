@@ -1,0 +1,88 @@
+- hosts: webservers
+  gather_facts: no
+  tasks:
+    - name: Install git 
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: yes
+      become: yes
+
+    - name: Create ansible-worker user
+      ansible.builtin.user:
+        name: ansible-worker
+        shell: /bin/bash
+        home: /home/ansible-worker
+        state: present
+      become: yes  
+    
+    - name: Set ssh keys for ansible-worker user
+      ansible.posix.authorized_key:
+        user: ansible-worker
+        state: present
+        key: "{{ lookup('file', '{{ playbook_dir }}/ssh_keys/id_rsa.pub') }}"
+      become: yes
+
+    - name: Remove github repository
+      ansible.builtin.file:
+        path: /home/ansible-worker/www/stud-template/
+        state: absent
+      become: yes
+
+    - name: Clone a github repository
+      ansible.builtin.git:
+        repo: https://github.com/iphilka/stud-template
+        dest: /home/ansible-worker/www/stud-template/
+        clone: yes
+        force: yes
+        update: yes
+      become: yes 
+    
+    - name: Copy HTML file to repo
+      ansible.builtin.copy:
+        src: "{{ playbook_dir}}/index.html"
+        dest: /home/ansible-worker/www/stud-template/index.html
+      become: yes 
+
+    - name: Install nginx 
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: yes
+      become: yes 
+
+    - name: Add user to group root
+      ansible.builtin.user:
+        name: www-data
+        groups: root
+        state: present
+      become: yes 
+
+    - name: Set permissions for www directory
+      shell: chown -R www-data:www-data /home/ansible-worker/www && chmod -R 755 /home/ansible-worker/www
+      become: yes
+
+    - name: Apply new site
+      ansible.builtin.template:
+        src: "{{ playbook_dir}}/ansible.iphilka.ru.conf"
+        dest: /etc/nginx/sites-available/ansible.iphilka.ru.conf
+        owner: www-data
+        group: root
+        mode: '0644'
+      notify: Restart nginx
+      become: yes 
+
+    - name: Enable new site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/ansible.iphilka.ru.conf
+        dest: /etc/nginx/sites-enabled/ansible.iphilka.ru.conf
+        state: link
+      notify: Restart nginx
+      become: yes 
+
+  handlers:
+    - name: Restart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+      become: yes
