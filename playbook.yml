@@ -80,6 +80,26 @@
       notify: Restart nginx
       become: yes 
 
+    - name: Get nginx access log
+      command: tail -n 100 /var/log/nginx/access.log
+      register: nginx_access_log
+      become: yes 
+
+
+    - name: Get nginx error log
+      command: tail -n 100 /var/log/nginx/error.log
+      register: nginx_error_log
+      become: yes 
+
+    - name: Display nginx access log
+      debug:
+        var: nginx_access_log.stdout_lines
+
+    - name: Display nginx error log
+      debug:
+        var: nginx_error_log.stdout_lines
+
+
   handlers:
     - name: Restart nginx
       ansible.builtin.service:
