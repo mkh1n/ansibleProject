@@ -1,4 +1,4 @@
-- hosts: webservers
+- hosts: all
   gather_facts: no
   tasks:
     - name: Install git 
@@ -23,6 +23,13 @@
         key: "{{ lookup('file', '{{ playbook_dir }}/ssh_keys/id_rsa.pub') }}"
       become: yes
 
+    - name: Group setting for www-data user
+      ansible.builtin.file:
+        path: "/home/ansible-worker"
+        owner: www-data
+        group: ansible-worker
+      become: yes
+
     - name: Remove github repository
       ansible.builtin.file:
         path: /home/ansible-worker/www/stud-template/
@@ -40,7 +47,7 @@
     
     - name: Copy HTML file to repo
       ansible.builtin.copy:
-        src: "{{ playbook_dir}}/index.html"
+        src: "{{ playbook_dir}}/tamplates/index.html"
         dest: /home/ansible-worker/www/stud-template/index.html
       become: yes 
 
@@ -51,20 +58,19 @@
         update_cache: yes
       become: yes 
 
-    - name: Add user to group root
-      ansible.builtin.user:
-        name: www-data
-        groups: root
-        state: present
+    - name: Set permissions for www-data user
+      ansible.builtin.file:
+        path: "/home/ansible-worker/www"
+        owner: www-data
+        group: ansible-worker
+        mode: "0755"
+        recurse: yes
       become: yes 
 
-    - name: Set permissions for www directory
-      shell: chown -R www-data:www-data /home/ansible-worker/www && chmod -R 755 /home/ansible-worker/www
-      become: yes
 
     - name: Apply new site
       ansible.builtin.template:
-        src: "{{ playbook_dir}}/ansible.iphilka.ru.conf"
+        src: "{{ playbook_dir}}/tamplates/ansible.iphilka.ru.conf"
         dest: /etc/nginx/sites-available/ansible.iphilka.ru.conf
         owner: www-data
         group: root
